@@ -46,11 +46,13 @@ function LRUCache(Keys, Values, capacity) {
 
   this.forward = new PointerArray(capacity);
   this.backward = new PointerArray(capacity);
+  this.visited = new typed.Uint8Array(capacity);
   this.K = typeof Keys === 'function' ? new Keys(capacity) : new Array(capacity);
   this.V = typeof Values === 'function' ? new Values(capacity) : new Array(capacity);
 
   // Properties
   this.size = 0;
+  this.ptr = -1;
   this.head = 0;
   this.tail = 0;
   this.items = {};
@@ -63,41 +65,77 @@ function LRUCache(Keys, Values, capacity) {
  */
 LRUCache.prototype.clear = function() {
   this.size = 0;
+  this.ptr = -1;
   this.head = 0;
   this.tail = 0;
   this.items = {};
 };
 
-/**
- * Method used to splay a value on top.
- *
- * @param  {number}   pointer - Pointer of the value to splay on top.
- * @return {LRUCache}
- */
-LRUCache.prototype.splayOnTop = function(pointer) {
-  var oldHead = this.head;
+// /**
+//  * Method used to splay a value on top.
+//  *
+//  * @param  {number}   pointer - Pointer of the value to splay on top.
+//  * @return {LRUCache}
+//  */
+// LRUCache.prototype.splayOnTop = function(pointer) {
+//   var oldHead = this.head;
 
-  if (this.head === pointer)
-    return this;
+//   if (this.head === pointer)
+//     return this;
 
-  var previous = this.backward[pointer],
-      next = this.forward[pointer];
+//   var previous = this.backward[pointer],
+//       next = this.forward[pointer];
 
-  if (this.tail === pointer) {
-    this.tail = previous;
+//   if (this.tail === pointer) {
+//     this.tail = previous;
+//   }
+//   else {
+//     this.backward[next] = previous;
+//   }
+
+//   this.forward[previous] = next;
+
+//   this.backward[oldHead] = pointer;
+//   this.head = pointer;
+//   this.forward[pointer] = oldHead;
+
+//   return this;
+// };
+
+LRUCache.prototype.evict = function(key, value) {
+
+  pointer = this.ptr;
+
+  if (pointer == -1) {
+    pointer = this.tail;
   }
-  else {
-    this.backward[next] = previous;
+
+  while (pointer != self.head && this.visited[pointer]) {
+    this.visited[pointer] = false;
+    pointer = this.backward[pointer];
   }
 
-  this.forward[previous] = next;
+  if (pointer == this.head && this.visited[pointer]) {
+    this.visited[pointer] = false;
+    pointer = this.tail;
+  }
 
-  this.backward[oldHead] = pointer;
-  this.head = pointer;
-  this.forward[pointer] = oldHead;
+  while (pointer != self.head && this.visited[pointer]) {
+    this.visited[pointer] = false;
+    pointer = this.backward[pointer];
+  }
 
-  return this;
-};
+  delete this.items[this.K[pointer]];
+
+  if (pointer == this.head) {
+    this.ptr = this.tail;
+    this.head = this.forward[pointer];
+  } else {
+  this.ptr = this.backward[pointer];
+  }
+
+  return pointer;
+}
 
 /**
  * Method used to set the value for the given key in the cache.
@@ -112,7 +150,8 @@ LRUCache.prototype.set = function(key, value) {
 
   // The key already exists, we just need to update the value and splay on top
   if (typeof pointer !== 'undefined') {
-    this.splayOnTop(pointer);
+    // this.splayOnTop(pointer);
+    this.visited[pointer] = true;
     this.V[pointer] = value;
 
     return;
@@ -125,9 +164,10 @@ LRUCache.prototype.set = function(key, value) {
 
   // Cache is full, we need to drop the last value
   else {
-    pointer = this.tail;
-    this.tail = this.backward[pointer];
-    delete this.items[this.K[pointer]];
+    // pointer = this.tail;
+    // this.tail = this.backward[pointer];
+    // delete this.items[this.K[pointer]];
+    pointer = this.evict(key, value);
   }
 
   // Storing key & value
